@@ -9,13 +9,13 @@ description: >
   or invokes /jerry-review.
 ---
 
-Review the current branch/PR the way a strict senior reviewer would, then fix what they'd flag. Assume they run multi-pass AI reviews (domain reviewers + cross-cutting passes) plus CodeRabbit — anything below WILL be found.
+Review the current branch/PR the way a strict senior reviewer would, then fix what they'd flag. Assume they run multi-pass AI reviews (domain reviewers + cross-cutting passes) plus review bots — anything below WILL be found.
 
 ## Step 0 — Gather
 
 - PR exists: `gh pr view --json title,body,files` + `gh pr diff`. No PR yet: diff branch vs `main`.
 - Identify repo lane: android / backend / ios / frontend / infra. Pick lane checks below.
-- Kick off CodeRabbit in parallel (`/code-review` skill) — clear its findings pre-emptively.
+- Kick off any available review bot in parallel (e.g. `/code-review`) — clear its findings pre-emptively.
 - Large PR (>~30 files): fan out parallel subagents, one per domain pass below, then merge findings.
 
 ## Pass 1 — Claims audit (do this first, never skip)
@@ -92,4 +92,4 @@ Every finding = `file:line` + concrete failure scenario with real numbers ("note
 
 1. Fix blockers, then risks; nits if cheap.
 2. Re-run the claims audit against the final diff; rewrite PR description to match.
-3. Confirm CodeRabbit findings addressed.
+3. Confirm review-bot findings addressed.

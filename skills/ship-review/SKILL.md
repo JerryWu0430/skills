@@ -1,6 +1,6 @@
 ---
 name: ship-review
-description: End-of-work review-and-ship loop. Use when finishing a feature, a QA list item, or any chunk of work — or when the user says "ship it", "wrap this up", "review and commit", or "run reviews". Runs local reviewers (/caveman-review, /jerry-review), commits, pushes, creates/updates the PR with gh, then monitors Greptile + CodeRabbit comments and CI, looping fixes until no comments remain and CI is green. Can be invoked multiple times on the same branch.
+description: End-of-work review-and-ship loop. Use when finishing a feature, a QA list item, or any chunk of work — or when the user says "ship it", "wrap this up", "review and commit", or "run reviews". Runs local reviewers (/caveman-review, /jerry-review), commits, pushes, creates/updates the PR with gh, then monitors review-bot comments (CodeRabbit, Greptile, Devin, Bugbot — whatever the repo has) and CI, looping fixes until no comments remain and CI is green. Can be invoked multiple times on the same branch.
 ---
 
 # ship-review
@@ -18,11 +18,11 @@ description: End-of-work review-and-ship loop. Use when finishing a feature, a Q
 7. **PR via gh.** If none exists: `gh pr create` with body from /pr-description, base = the branch below in the stack, or main for the bottom branch. If exists: `gh pr edit` to append a terse "since last push:" section — don't rewrite the whole body.
    - Media: follow /pr-description's Media step right after the PR exists. Attach the screenshots and video the verify run captured (upload via Chrome, then `gh pr edit`). On re-runs, add new media under "since last push:" instead of replacing old.
    - Title format: `[<TICKET-ID>][<SCOPE>...] <type>: <Description>` — infer ticket ID from the branch name, scopes ([BE]/[FE]/[MOBILE]/[INFRA]) from the changed files, type = fix/feat/chore/refactor.
-8. Greptile always reviews — never skip it. CodeRabbit runs automatically on the PR too. No opting out of either.
+8. **Detect review bots.** Whatever the repo has installed — CodeRabbit, Greptile, Devin, Bugbot, etc. Check past PRs (`gh pr view <recent> --comments`) to see which post. Never skip one that's installed.
 
 ## Phase 3 — remote loop (repeat until clean)
-9. **Wait for bots + CI.** Poll with `gh pr checks <num>` and `gh api repos/{owner}/{repo}/pulls/{num}/comments` + `gh pr view --comments`. Give Greptile/CodeRabbit a few minutes to post; poll with backoff (60s, then 120s), don't hammer.
-10. **Collect remote comments.** Greptile + CodeRabbit review comments since last push. Dedupe against each other and against already-addressed local comments.
+9. **Wait for bots + CI.** Poll with `gh pr checks <num>` and `gh api repos/{owner}/{repo}/pulls/{num}/comments` + `gh pr view --comments`. Give the bots a few minutes to post; poll with backoff (60s, then 120s), don't hammer.
+10. **Collect remote comments.** All review-bot comments since last push. Dedupe across bots and against already-addressed local comments.
 11. **Triage same as step 3.** Fix fix-nows, run local checks (step 4), commit (terse style), push.
     - For dismissed bot comments: reply on the PR thread with a one-line reason (`gh pr comment` or `gh api` reply) so the thread isn't left dangling.
 12. **CI.** If any check fails, read the failure log (`gh run view --log-failed`), fix, commit, push. CI green is a hard exit requirement.

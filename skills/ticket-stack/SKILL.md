@@ -17,7 +17,7 @@ Tickets arrive as any mix of:
 3. **Parallelism rule.** Only parallelize tickets with zero expected file overlap AND no schema/migration conflicts. When in doubt, stack sequentially. Parallel agents each get their own branch off the current stack tip; merge order decided up front.
 4. **Branch/stack mechanics.**
    - Stack shape: `main <- feat1 <- feat2 <- ...`. The bottom branch bases off main; every branch above bases off the branch below it.
-   - Branch naming: `<TICKET-ID>-<3-5-word-kebab-summary>`, e.g. `ENG-50-fix-vad-noisy-env`, `ENG-255-greptile-pr-review-setup`. Summary derived from the ticket title, terse.
+   - Branch naming: `<TICKET-ID>-<3-5-word-kebab-summary>`, e.g. `ENG-50-fix-vad-noisy-env`, `ENG-255-add-pr-review-bot`. Summary derived from the ticket title, terse.
    - Pasted tickets with no ID: just the kebab summary, e.g. `fix-vad-noisy-env`.
    - One PR per ticket. PR base = the branch below it in the stack; the bottom PR's base = main.
    - PR titles: `[<TICKET-ID>][<SCOPE>...] <type>: <Description>`, e.g. `[ENG-50][BE][FE] fix: VAD threshold in noisy environments`.
@@ -25,7 +25,7 @@ Tickets arrive as any mix of:
      - type = conventional-commit style: fix / feat / chore / refactor.
      - Pasted-only tickets: drop the ID bracket, keep scopes + type.
    - Use gh for all PR operations.
-5. **Per-layer:** implement ticket → run the ship-review skill (it owns commits, push, PR creation, and the Greptile/CodeRabbit/CI loop until clean). Then, if the ticket has a Linear ID, update its status + link the PR; skip Linear updates for pasted-only tickets.
+5. **Per-layer:** implement ticket → run the ship-review skill (it owns commits, push, PR creation, and the review-bot/CI loop until clean). Then, if the ticket has a Linear ID, update its status + link the PR; skip Linear updates for pasted-only tickets.
 6. **qa.md** at the stack tip, committed on the top branch. Format per ticket:
    - ticket ID (or slug) + one-line what changed
    - each new/changed function or endpoint: name, file, and a concrete manual check ("call X with noisy audio sample, expect segments < 2s")
