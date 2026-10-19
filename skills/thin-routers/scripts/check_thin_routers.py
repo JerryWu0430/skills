@@ -69,18 +69,24 @@ def violations(path: Path, args: argparse.Namespace) -> list[tuple[str, int, str
         ):
             found.append(("db-access", node.lineno, f"{node.func.value.id}.{node.func.attr}()"))
         elif isinstance(node, ast.Import):
-            found += [("orm-import", node.lineno, a.name) for a in node.names if a.name.split(".")[0] == "sqlalchemy"]
+            found += [
+                ("orm-import", node.lineno, a.name)
+                for a in node.names
+                if a.name.split(".")[0] == "sqlalchemy" or a.name.split(".")[-1] == args.database_module
+            ]
         elif isinstance(node, ast.ImportFrom):
-            module = (node.module or "").split(".")
-            # `from ..database import x` / `from app.database import x` both end in the module name.
-            key = "sqlalchemy" if module[0] == "sqlalchemy" else module[-1]
-            if key in {"sqlalchemy", args.database_module}:
-                dotted = node.module if key == "sqlalchemy" else key
-                found += [
-                    ("orm-import", node.lineno, f"{dotted}.{a.name}")
-                    for a in node.names
-                    if (dotted, a.name) not in allowed_imports
-                ]
+            parts = (node.module or "").split(".")
+            for alias in node.names:
+                if parts[0] == "sqlalchemy":
+                    module, target = node.module, f"{node.module}.{alias.name}"
+                elif parts[-1] == args.database_module:  # `from ..database import x`, `from app.database import x`
+                    module, target = args.database_module, f"{args.database_module}.{alias.name}"
+                elif alias.name == args.database_module:  # `from .. import database`: the engine is one attribute away
+                    module, target = "", alias.name
+                else:
+                    continue
+                if (module, alias.name) not in allowed_imports:
+                    found.append(("orm-import", node.lineno, target))
         elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             lines = _body_lines(node)
             if lines > args.max_lines:
