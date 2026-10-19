@@ -12,7 +12,8 @@ schema. Everything else is service logic. Machine proxies, per router module:
   long-function  a function body over --max-lines lines, docstring excluded.
 
 Legacy violations are COUNTED per file + rule in a JSON baseline that only shrinks: a new
-violation fails, and a fixed one fails until the baseline is lowered with --write.
+violation fails, and a fixed one fails until the baseline is lowered with --write. Counts are
+keyed by file: move the logic out of a router before splitting it into a package.
 
   python check_thin_routers.py --routers app/routers --baseline scripts/thin-routers-baseline.json
   ... --write    record today's debt (first run) or ratchet the baseline down
@@ -38,19 +39,38 @@ def _body_lines(fn: ast.FunctionDef | ast.AsyncFunctionDef) -> int:
     return body[-1].end_lineno - body[0].lineno + 1 if body else 0
 
 
+def _session_types(tree: ast.Module) -> set[str]:
+    """``Session`` plus any local alias (``from sqlalchemy.orm import Session as S``)."""
+    names = {"Session"}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and (node.module or "").startswith("sqlalchemy"):
+            names |= {a.asname for a in node.names if a.name == "Session" and a.asname}
+    return names
+
+
+def _is_session_param(arg: ast.arg, default: ast.expr | None, session_types: set[str], dep: str) -> bool:
+    # Exact type names only (`RecipeImportSession` is a model); walking the annotation also
+    # unwraps `Session | None` and `Annotated[Session, Depends(get_db)]`.
+    for node in ast.walk(arg.annotation) if arg.annotation else ():
+        if (isinstance(node, ast.Name) and node.id in session_types) or (
+            isinstance(node, ast.Attribute) and node.attr == "Session"
+        ):
+            return True
+        if isinstance(node, ast.Call) and ast.unparse(node) == dep:
+            return True
+    return default is not None and ast.unparse(default) == dep
+
+
 def _session_names(tree: ast.Module, session_dep: str) -> set[str]:
     names = {"db"}
+    session_types = _session_types(tree)
+    dep = f"Depends({session_dep})"
     for fn in ast.walk(tree):
         if isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
             positional = fn.args.posonlyargs + fn.args.args
             defaults = [None] * (len(positional) - len(fn.args.defaults)) + fn.args.defaults
             pairs = list(zip(positional, defaults)) + list(zip(fn.args.kwonlyargs, fn.args.kw_defaults))
-            for arg, default in pairs:
-                annotation = ast.unparse(arg.annotation) if arg.annotation else ""
-                if annotation.endswith("Session") or (
-                    default is not None and ast.unparse(default) == f"Depends({session_dep})"
-                ):
-                    names.add(arg.arg)
+            names |= {arg.arg for arg, default in pairs if _is_session_param(arg, default, session_types, dep)}
     return names
 
 
@@ -61,13 +81,13 @@ def violations(path: Path, args: argparse.Namespace) -> list[tuple[str, int, str
     found = []
     for node in ast.walk(tree):
         if (
-            isinstance(node, ast.Call)
-            and isinstance(node.func, ast.Attribute)
-            and isinstance(node.func.value, ast.Name)
-            and node.func.value.id in sessions
-            and node.func.attr not in SESSION_CALLS_ALLOWED
+            # Any attribute, not just calls: `q = db.query; q(...)` is the same query.
+            isinstance(node, ast.Attribute)
+            and isinstance(node.value, ast.Name)
+            and node.value.id in sessions
+            and node.attr not in SESSION_CALLS_ALLOWED
         ):
-            found.append(("db-access", node.lineno, f"{node.func.value.id}.{node.func.attr}()"))
+            found.append(("db-access", node.lineno, f"{node.value.id}.{node.attr}"))
         elif isinstance(node, ast.Import):
             found += [
                 ("orm-import", node.lineno, a.name)
@@ -141,7 +161,14 @@ def main() -> int:
         print(f"{args.baseline}: {_total(counts)} violations in {len(counts)} files recorded.")
         return 0
     if counts != baseline:
-        print(f"Stale baseline (lower it: rerun with --write)", file=sys.stderr)
+        stale = sorted(
+            f"    {file} {rule}: baseline {allowed}, now {counts.get(file, {}).get(rule, 0)}"
+            for file, rules in baseline.items()
+            for rule, allowed in rules.items()
+            if counts.get(file, {}).get(rule, 0) != allowed
+        )
+        print("Stale baseline (lower it: rerun with --write)", file=sys.stderr)
+        print("\n".join(stale), file=sys.stderr)
         return 1
     print(f"Thin routers OK ({_total(counts)} legacy violations in {len(counts)} files on the shrink-only list).")
     return 0
