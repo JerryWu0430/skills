@@ -7,8 +7,9 @@ My Claude Code skills for shipping PRs.
 | [ticket-stack](skills/ticket-stack) | Linear tickets → stacked branches/PRs, parallel agents where safe, `qa.md` at the tip |
 | [ship-review](skills/ship-review) | Local reviews → commit → push → PR, then loop on review-bot comments + CI until clean |
 | [jerry-review](skills/jerry-review) | Strict multi-pass pre-review: claims audit, data safety, rollback, consistency, lane checks, tests |
+| [thin-routers](skills/thin-routers) | No service logic in FastAPI routers: AST check with a shrink-only baseline + diff review; can install the check into a repo |
 
-`ticket-stack` calls `ship-review`, which calls `/caveman-review` and `/jerry-review`.
+`ticket-stack` calls `ship-review`, which calls `/caveman-review` and `/jerry-review`, plus `/thin-routers` when backend routers changed.
 
 ## Install
 

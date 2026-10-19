@@ -1,13 +1,13 @@
 ---
 name: ship-review
-description: End-of-work review-and-ship loop. Use when finishing a feature, a QA list item, or any chunk of work — or when the user says "ship it", "wrap this up", "review and commit", or "run reviews". Runs local reviewers (/caveman-review, /jerry-review), commits, pushes, creates/updates the PR with gh, then monitors review-bot comments (CodeRabbit, Greptile, Devin, Bugbot — whatever the repo has) and CI, looping fixes until no comments remain and CI is green. Can be invoked multiple times on the same branch.
+description: End-of-work review-and-ship loop. Use when finishing a feature, a QA list item, or any chunk of work — or when the user says "ship it", "wrap this up", "review and commit", or "run reviews". Runs local reviewers (/caveman-review, /jerry-review, plus guard skills like /thin-routers when their area changed), commits, pushes, creates/updates the PR with gh, then monitors review-bot comments (CodeRabbit, Greptile, Devin, Bugbot — whatever the repo has) and CI, looping fixes until no comments remain and CI is green. Can be invoked multiple times on the same branch.
 ---
 
 # ship-review
 
 ## Phase 1 — local (pre-push)
 1. **Scope the diff.** `git diff <base>...HEAD` plus unstaged. Base = merge-base with the branch this stacks on (main if this is the bottom of the stack).
-2. **Local reviews.** Run /caveman-review and /jerry-review on the diff. Collect comments, dedupe.
+2. **Local reviews.** Run /caveman-review and /jerry-review on the diff. Also run every guard skill whose area the diff touches: `/thin-routers` when backend router files changed, plus any guard the repo ships in `.claude/skills/`. A guard's failing check is fix-now. Collect comments, dedupe.
 3. **Triage.** fix-now / ticket-later / dismiss-with-reason. Fix the fix-nows. List deferred/dismissed to the user — never silently drop.
 4. **Local checks.** Run lint + typecheck + tests (check package.json / Makefile / CI config for the canonical commands). Fix failures before committing.
 5. **Commit.** One commit per coherent behavior change. Test: each commit revertable alone, app still builds. 2-6 commits for multi-part work is right; squash 10+ tiny ones, split one giant one.
